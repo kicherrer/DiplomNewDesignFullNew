@@ -1,0 +1,26 @@
+<svg width="300" height="450" viewBox="0 0 300 450" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="300" height="450" fill="#1a1a1a"/>
+  <g transform="translate(100, 175)">
+    <path d="M50,0 A50,50 0 1,1 50,100 A50,50 0 1,1 50,0" fill="none" stroke="#333" stroke-width="8">
+      <animateTransform
+        attributeName="transform"
+        type="rotate"
+        from="0 50 50"
+        to="360 50 50"
+        dur="2s"
+        repeatCount="indefinite"
+      />
+    </path>
+    <path d="M50,20 A30,30 0 1,1 50,80 A30,30 0 1,1 50,20" fill="none" stroke="#444" stroke-width="8">
+      <animateTransform
+        attributeName="transform"
+        type="rotate"
+        from="360 50 50"
+        to="0 50 50"
+        dur="1.5s"
+        repeatCount="indefinite"
+      />
+    </path>
+  </g>
+  <text x="150" y="350" text-anchor="middle" fill="#666" font-family="Arial" font-size="16">Постер недоступен</text>
+</svg>
