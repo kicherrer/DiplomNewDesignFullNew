@@ -1,7 +1,20 @@
 // YouTube API Response Types
 
+export interface YouTubeErrorResponse {
+  error: {
+    code: number;
+    message: string;
+    errors: Array<{
+      message: string;
+      domain: string;
+      reason: string;
+    }>;
+  };
+}
+
 export interface YouTubeSearchResponse {
   items: YouTubeSearchItem[];
+  error?: YouTubeErrorResponse['error'];
 }
 
 export interface YouTubeSearchItem {
@@ -16,6 +29,7 @@ export interface YouTubeSearchItem {
 
 export interface YouTubeVideoResponse {
   items: YouTubeVideoItem[];
+  error?: YouTubeErrorResponse['error'];
 }
 
 export interface YouTubeVideoItem {

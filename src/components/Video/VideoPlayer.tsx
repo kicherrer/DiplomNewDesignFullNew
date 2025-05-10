@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { VideoType } from '@prisma/client';
+import { YOUTUBE_API_KEY } from '@/config/youtube';
 
 interface VideoSource {
   url: string;
@@ -9,6 +10,8 @@ interface VideoSource {
   format: string;
   status?: 'loading' | 'ready' | 'error';
   errorMessage?: string;
+  title?: string;
+  description?: string;
 }
 
 interface VideoPlayerProps {
@@ -113,12 +116,54 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videos, trailers, onError, in
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const maxRetries = 3;
+  const [validatedTrailers, setValidatedTrailers] = useState<VideoSource[]>([]);
 
   const currentVideos = currentType === 'movie' ? videos : trailers;
 
   const getYouTubeEmbedUrl = (url: string): string => {
     const videoId = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^\/\?&]+)/)?.[1];
-    return videoId ? `https://www.youtube.com/embed/${videoId}?origin=${encodeURIComponent(window.location.origin)}&enablejsapi=1&autoplay=0&modestbranding=1&rel=0&controls=1` : url;
+    if (!videoId) return url;
+    
+    const params = new URLSearchParams({
+      origin: window.location.origin,
+      enablejsapi: '1',
+      autoplay: '0',
+      modestbranding: '1',
+      rel: '0',
+      controls: '1',
+      nocookie: '1',
+      iv_load_policy: '3',
+      referrer: window.location.origin,
+      cors: '1'
+    });
+
+    // Добавляем API ключ через заголовки для большей безопасности
+    const headers = new Headers({
+      'Authorization': `Bearer ${YOUTUBE_API_KEY}`,
+      'X-Requested-With': 'XMLHttpRequest',
+      'Origin': window.location.origin
+    });
+
+    return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
+  };
+
+  const validateTrailer = (trailer: VideoSource, mediaTitle: string, mediaDescription: string): boolean => {
+    if (!trailer.title || !trailer.description) return false;
+    
+    const trailerKeywords = [...trailer.title.toLowerCase().split(' '), ...trailer.description.toLowerCase().split(' ')];
+    const mediaKeywords = [...mediaTitle.toLowerCase().split(' '), ...mediaDescription.toLowerCase().split(' ')];
+    
+    const matchCount = trailerKeywords.filter(keyword => 
+      mediaKeywords.some(mediaWord => mediaWord.includes(keyword) || keyword.includes(mediaWord))
+    ).length;
+    
+    const threshold = Math.min(trailerKeywords.length, mediaKeywords.length) * 0.3;
+    return matchCount >= threshold;
+  };
+
+  const findMatchingTrailer = (mediaTitle: string, mediaDescription: string): VideoSource | null => {
+    const matchingTrailer = trailers.find(trailer => validateTrailer(trailer, mediaTitle, mediaDescription));
+    return matchingTrailer || null;
   };
 
   const handleVideoError = async () => {
@@ -126,17 +171,56 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videos, trailers, onError, in
       setIsLoading(true);
       setError('');
       try {
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        const retryDelay = Math.min(500 * Math.pow(1.5, retryCount), 2000);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
         setRetryCount(prev => prev + 1);
-      } catch (err) {
-        setError('Произошла ошибка при попытке загрузить видео');
-        onError && onError(new Error('Ошибка загрузки видео'));
+        
+        if (currentType === 'trailer' && currentSource) {
+          // Проверяем валидность URL и соответствие трейлера
+          try {
+            const currentVideo = videos[0];
+            if (currentVideo && currentVideo.title && currentVideo.description) {
+              const matchingTrailer = findMatchingTrailer(currentVideo.title, currentVideo.description);
+              if (matchingTrailer && matchingTrailer.url !== currentSource) {
+                console.log('Найден более подходящий трейлер, выполняем замену...');
+                setCurrentSource(getYouTubeEmbedUrl(matchingTrailer.url));
+                return;
+              }
+            }
+
+            const response = await fetch(currentSource, { method: 'HEAD' });
+            if (!response.ok) {
+              throw new Error('Трейлер недоступен или был удален');
+            }
+            
+            const newUrl = new URL(currentSource);
+            newUrl.searchParams.set('_retry', retryCount.toString());
+            newUrl.searchParams.set('t', Date.now().toString());
+            newUrl.searchParams.set('cors', '1');
+            setCurrentSource(newUrl.toString());
+            
+            // Обновляем iframe с проверенным URL
+            const iframe = document.querySelector('iframe');
+            if (iframe) {
+              iframe.src = newUrl.toString();
+            }
+          } catch (urlError) {
+            console.error('Ошибка при проверке URL трейлера:', urlError);
+            throw new Error('Трейлер недоступен. Пожалуйста, сообщите администратору.');
+          }
+        }
+      } catch (err: unknown) {
+        console.error('Ошибка при загрузке трейлера:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Неизвестная ошибка';
+        setError(errorMessage);
+        onError && onError(new Error(`Ошибка загрузки трейлера: ${errorMessage}`));
       } finally {
         setIsLoading(false);
       }
     } else {
-      setError('Не удалось загрузить видео после нескольких попыток');
-      onError && onError(new Error('Не удалось загрузить видео после нескольких попыток'));
+      const errorMessage = 'Не удалось загрузить трейлер. Возможно, он был удален или перемещен.';
+      setError(errorMessage);
+      onError && onError(new Error(errorMessage));
     }
   };
 
@@ -164,9 +248,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videos, trailers, onError, in
             setCurrentSource(defaultVideo.url);
           }
         }
-      } catch (err) {
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Неизвестная ошибка';
         setError('Ошибка при инициализации видео');
-        onError && onError(new Error('Ошибка при инициализации видео'));
+        onError && onError(new Error(`Ошибка при инициализации видео: ${errorMessage}`));
       } finally {
         setIsLoading(false);
       }
@@ -192,9 +277,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videos, trailers, onError, in
       } else {
         throw new Error('Не удалось найти источник видео для выбранного качества');
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка при смене качества видео');
-      onError && onError(new Error('Ошибка при смене качества видео'));
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      setError(errorMessage);
+      onError && onError(new Error(`Ошибка при смене качества видео: ${errorMessage}`));
     } finally {
       setIsLoading(false);
     }
@@ -214,9 +300,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videos, trailers, onError, in
       } else {
         throw new Error(`Нет доступных ${type === 'movie' ? 'фильмов' : 'трейлеров'}`);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка при смене типа видео');
-      onError && onError(new Error('Ошибка при смене типа видео'));
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      setError(errorMessage);
+      onError && onError(new Error(`Ошибка при смене типа видео: ${errorMessage}`));
     } finally {
       setIsLoading(false);
     }

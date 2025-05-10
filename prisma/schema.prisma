@@ -247,6 +247,8 @@ model VideoContent {
   size        Int?
   type        VideoType
   status      VideoStatus @default(PENDING)
+  score       Int      @default(0)
+  is_russian  Boolean  @default(false)
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
   media_trailer Media? @relation("MediaTrailers", fields: [media_trailer_id], references: [id])
