@@ -153,8 +153,8 @@ const MediaFileItem = styled.div`
   padding: 15px;
   margin-bottom: 10px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 10px;
 `;
 
 const MediaFileInfo = styled.div`
@@ -221,6 +221,7 @@ const EditContent = () => {
   const [mediaItem, setMediaItem] = useState<MediaItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState('');
   const [availableGenres, setAvailableGenres] = useState<Genre[]>([]);
@@ -503,6 +504,35 @@ const EditContent = () => {
     }
   };
 
+  const handleUpdateMediaFile = async (fileId: number, newUrl: string) => {
+    if (!mediaItem) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Не найден токен авторизации');
+
+      const response = await fetch(`/api/admin/content/${id}/media-files/${fileId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ url: newUrl })
+      });
+
+      if (!response.ok) throw new Error('Ошибка при обновлении медиа-файла');
+
+      const updatedFile = await response.json();
+      const updatedFiles = mediaItem.media_files.map(f => 
+        f.id === fileId ? { ...f, url: newUrl } : f
+      );
+      setMediaItem({ ...mediaItem, media_files: updatedFiles });
+      setSuccess('Медиа-файл успешно обновлен');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Произошла ошибка');
+    }
+  };
+
   return (
     <AdminLayout>
       <EditContainer>
@@ -655,16 +685,42 @@ const EditContent = () => {
             <MediaFilesList>
               {mediaItem?.trailers?.map((file) => (
                 <MediaFileItem key={file.id}>
-                  <MediaFileInfo>
-                    <MediaFileTitle>
-                      {file.title || 'Трейлер'}
-                    </MediaFileTitle>
-                    <MediaFileType>{file.type}</MediaFileType>
-                  </MediaFileInfo>
-                  <MediaFileActions>
-                    <Button type="button" onClick={() => window.open(file.url, '_blank')}>Просмотр</Button>
-                    <Button type="button" onClick={() => handleRemoveMediaFile(file.id)}>Удалить</Button>
-                  </MediaFileActions>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <MediaFileInfo>
+                      <MediaFileTitle>
+                        {file.title || 'Трейлер'}
+                      </MediaFileTitle>
+                      <MediaFileType>{file.type}</MediaFileType>
+                    </MediaFileInfo>
+                    <MediaFileActions>
+                      <Button type="button" onClick={() => window.open(file.url, '_blank')}>Просмотр</Button>
+                      <Button type="button" onClick={() => handleRemoveMediaFile(file.id)}>Удалить</Button>
+                    </MediaFileActions>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                    <Input
+                      type="url"
+                      defaultValue={file.url}
+                      placeholder="Введите новый URL"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleUpdateMediaFile(file.id, e.currentTarget.value);
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      onClick={(e) => {
+                        const input = e.currentTarget.parentElement?.querySelector('input');
+                        if (input) {
+                          handleUpdateMediaFile(file.id, input.value);
+                        }
+                      }}
+                    >
+                      Обновить
+                    </Button>
+                  </div>
                 </MediaFileItem>
               ))}
             </MediaFilesList>

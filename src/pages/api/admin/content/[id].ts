@@ -57,8 +57,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         return res.status(200).json(updatedMediaItem);
 
+      case 'DELETE':
+        try {
+          // Удаление связанных данных
+          await prisma.$transaction([
+            // Удаление связанных эпизодов (для сериалов)
+            prisma.episode.deleteMany({
+              where: { media_id: mediaId }
+            }),
+            // Удаление из истории просмотров
+            prisma.viewingHistory.deleteMany({
+              where: { media_id: mediaId }
+            }),
+            // Удаление из избранного
+            prisma.favorites.deleteMany({
+              where: { media_id: mediaId }
+            }),
+            // Удаление из списка просмотра
+            prisma.watchlist.deleteMany({
+              where: { media_id: mediaId }
+            }),
+            // Удаление источников видео
+            prisma.videoSource.deleteMany({
+              where: { media_id: mediaId }
+            }),
+            // Удаление самого медиа-контента
+            prisma.media.delete({
+              where: { id: mediaId }
+            })
+          ]);
+
+          // Очищаем кэш статистики в sessionStorage
+          await prisma.$transaction([
+            prisma.media.delete({
+              where: { id: mediaId }
+            }),
+            prisma.$executeRaw`DELETE FROM "session" WHERE data LIKE '%adminDashboardStats%'`
+          ]);
+          
+          return res.status(200).json({ message: 'Медиа-контент успешно удален', needStatsUpdate: true });
+        } catch (deleteError) {
+          console.error('Error deleting media:', deleteError);
+          return res.status(500).json({ error: 'Ошибка при удалении медиа-контента' });
+        }
+
       default:
-        res.setHeader('Allow', ['GET', 'PUT']);
+        res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
         return res.status(405).json({ error: `Метод ${req.method} не поддерживается` });
     }
   } catch (error) {

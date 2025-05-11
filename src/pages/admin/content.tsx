@@ -338,16 +338,32 @@ const ContentManagement = () => {
   const handleDelete = async (id: number) => {
     if (window.confirm('Вы уверены, что хотите удалить этот контент?')) {
       try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Не найден токен авторизации');
+        }
+
         const response = await fetch(`/api/admin/content/${id}`, {
           method: 'DELETE',
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           },
         });
-        if (!response.ok) throw new Error('Ошибка при удалении');
+
+        if (!response.ok) {
+          if (response.status === 405) {
+            throw new Error('Метод удаления не поддерживается на сервере');
+          }
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Ошибка при удалении контента');
+        }
+
         setMediaItems(prevItems => prevItems.filter(item => item.id !== id));
+        setFilteredItems(prevItems => prevItems.filter(item => item.id !== id));
       } catch (error) {
         console.error('Error deleting media item:', error);
+        setError(error instanceof Error ? error.message : 'Произошла ошибка при удалении');
       }
     }
   };

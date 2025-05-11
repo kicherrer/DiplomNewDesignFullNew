@@ -42,14 +42,14 @@ const AdminDashboard = () => {
     parserStatus: 'inactive'
   });
 
-  const loadDashboardStats = async () => {
+  const loadDashboardStats = async (forceUpdate = false) => {
     try {
       setIsLoading(true);
       const cachedStats = sessionStorage.getItem('adminDashboardStats');
       const lastUpdate = sessionStorage.getItem('adminDashboardStatsTime');
       
-      // Используем кэшированные данные, если они не старше 5 минут
-      if (cachedStats && lastUpdate && (Date.now() - Number(lastUpdate)) < 300000) {
+      // Используем кэшированные данные, если они не старше 5 минут и не требуется принудительное обновление
+      if (!forceUpdate && cachedStats && lastUpdate && (Date.now() - Number(lastUpdate)) < 300000) {
         setStats(JSON.parse(cachedStats));
         setIsLoading(false);
         return;
