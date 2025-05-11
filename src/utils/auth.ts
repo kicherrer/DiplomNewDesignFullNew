@@ -20,9 +20,9 @@ export const generateToken = (userId: number): string => {
   });
 };
 
-export const verifyToken = (token: string): { userId: number } | null => {
+export const verifyToken = (token: string): { userId: number; role?: string } | null => {
   try {
-    return jwt.verify(token, process.env.JWT_SECRET || 'secret') as { userId: number };
+    return jwt.verify(token, process.env.JWT_SECRET || 'secret') as { userId: number; role?: string };
   } catch {
     return null;
   }

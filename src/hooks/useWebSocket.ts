@@ -23,6 +23,7 @@ export const useWebSocket = ({
         const token = localStorage.getItem('token');
         if (!token) {
           console.error('WebSocket: Токен авторизации отсутствует');
+          // При отсутствии токена не пытаемся переподключаться
           return;
         }
         

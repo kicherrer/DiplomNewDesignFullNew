@@ -251,31 +251,41 @@ const ContentManagement = () => {
       }
 
       // Оптимизированная валидация элементов
-      const validatedItems = items.reduce((acc: MediaItem[], item, index) => {
+      const validatedItems = items.map((item: any): MediaItem => {
         if (!item || typeof item !== 'object') {
-          console.error(`Некорректный формат элемента ${index}:`, item);
-          return acc;
+          return {
+            id: 0,
+            title: 'Неизвестно',
+            type: 'MOVIE',
+            rating: 0,
+            views: 0,
+            status: 'INACTIVE',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
         }
 
-        const requiredFields = {
-          id: typeof item.id === 'number',
-          title: typeof item.title === 'string',
-          type: ['MOVIE', 'SERIES'].includes(item.type),
-          rating: typeof item.rating === 'number',
-          views: typeof item.views === 'number',
-          status: ['ACTIVE', 'INACTIVE', 'ERROR'].includes(item.status)
+        // Устанавливаем значения по умолчанию для всех полей
+        return {
+          id: item.id || 0,
+          title: item.title || 'Неизвестно',
+          original_title: item.original_title || undefined,
+          type: item.type || 'MOVIE',
+          description: item.description || undefined,
+          poster_url: item.poster_url || undefined,
+          backdrop_url: item.backdrop_url || undefined,
+          release_date: item.release_date || undefined,
+          rating: typeof item.rating === 'number' ? item.rating : 0,
+          duration: item.duration || undefined,
+          views: typeof item.views === 'number' ? item.views : 0,
+          status: item.status || 'INACTIVE',
+          source_id: item.source_id || undefined,
+          source_type: item.source_type || undefined,
+          created_at: item.created_at || new Date().toISOString(),
+          updated_at: item.updated_at || new Date().toISOString()
         };
+      });
 
-        const isValid = Object.values(requiredFields).every(Boolean);
-
-        if (!isValid) {
-          console.error(`Элемент ${index} не прошел валидацию:`, requiredFields);
-          return acc;
-        }
-
-        acc.push(item as MediaItem);
-        return acc;
-      }, []);
 
       // Оптимизированное обновление состояния
       const newItems = pagination.page === 1 ? validatedItems : [...mediaItems, ...validatedItems];
