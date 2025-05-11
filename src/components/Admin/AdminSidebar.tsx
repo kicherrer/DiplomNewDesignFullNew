@@ -93,6 +93,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ onLogout }) => {
   const navigationItems = [
     { title: 'Обзор', path: '/admin', icon: <FiHome /> },
     { title: 'Пользователи', path: '/admin/users', icon: <FiUsers /> },
+    { title: 'База данных', path: '/admin/database', icon: <FiDatabase /> },
     { title: 'Парсер', path: '/admin/parser', icon: <FiDatabase /> },
     { title: 'Настройки', path: '/admin/settings', icon: <FiSettings /> },
   ];
