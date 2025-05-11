@@ -541,21 +541,77 @@ const EditContent = () => {
         <Form onSubmit={handleSubmit}>
           <FormGroup>
             <Label>Название</Label>
-            <Input
-              type="text"
-              value={mediaItem.title}
-              onChange={(e) => setMediaItem({ ...mediaItem, title: e.target.value })}
-              required
-            />
+            <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+              <Input
+                type="text"
+                value={mediaItem.title}
+                onChange={(e) => setMediaItem({ ...mediaItem, title: e.target.value })}
+                required
+                style={{ flex: 1 }}
+              />
+              <Button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    if (!token) throw new Error('Не найден токен авторизации');
+
+                    const response = await fetch(`/api/admin/content/${id}`, {
+                      method: 'PUT',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({ title: mediaItem.title })
+                    });
+
+                    if (!response.ok) throw new Error('Ошибка при обновлении названия');
+                    setSuccess('Название успешно обновлено');
+                  } catch (error) {
+                    setError(error instanceof Error ? error.message : 'Произошла ошибка');
+                  }
+                }}
+              >
+                Обновить
+              </Button>
+            </div>
           </FormGroup>
 
           <FormGroup>
             <Label>Оригинальное название</Label>
-            <Input
-              type="text"
-              value={mediaItem.original_title || ''}
-              onChange={(e) => setMediaItem({ ...mediaItem, original_title: e.target.value })}
-            />
+            <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+              <Input
+                type="text"
+                value={mediaItem.original_title || ''}
+                onChange={(e) => setMediaItem({ ...mediaItem, original_title: e.target.value })}
+                style={{ flex: 1 }}
+              />
+              <Button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    if (!token) throw new Error('Не найден токен авторизации');
+
+                    const response = await fetch(`/api/admin/content/${id}`, {
+                      method: 'PUT',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({ original_title: mediaItem.original_title })
+                    });
+
+                    if (!response.ok) throw new Error('Ошибка при обновлении оригинального названия');
+                    setSuccess('Оригинальное название успешно обновлено');
+                  } catch (error) {
+                    setError(error instanceof Error ? error.message : 'Произошла ошибка');
+                  }
+                }}
+              >
+                Обновить
+              </Button>
+            </div>
           </FormGroup>
 
           <FormGroup>
@@ -572,10 +628,38 @@ const EditContent = () => {
 
           <FormGroup>
             <Label>Описание</Label>
-            <TextArea
-              value={mediaItem.description || ''}
-              onChange={(e) => setMediaItem({ ...mediaItem, description: e.target.value })}
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+              <TextArea
+                value={mediaItem.description || ''}
+                onChange={(e) => setMediaItem({ ...mediaItem, description: e.target.value })}
+                style={{ width: '100%' }}
+              />
+              <Button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    if (!token) throw new Error('Не найден токен авторизации');
+
+                    const response = await fetch(`/api/admin/content/${id}`, {
+                      method: 'PUT',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({ description: mediaItem.description })
+                    });
+
+                    if (!response.ok) throw new Error('Ошибка при обновлении описания');
+                    setSuccess('Описание успешно обновлено');
+                  } catch (error) {
+                    setError(error instanceof Error ? error.message : 'Произошла ошибка');
+                  }
+                }}
+              >
+                Обновить
+              </Button>
+            </div>
           </FormGroup>
 
           <FormGroup className="image-preview">
@@ -664,34 +748,118 @@ const EditContent = () => {
 
           <FormGroup>
             <Label>Дата выхода</Label>
-            <Input
-              type="date"
-              value={mediaItem.release_date?.split('T')[0] || ''}
-              onChange={(e) => setMediaItem({ ...mediaItem, release_date: e.target.value })}
-            />
+            <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+              <Input
+                type="date"
+                value={mediaItem.release_date?.split('T')[0] || ''}
+                onChange={(e) => setMediaItem({ ...mediaItem, release_date: e.target.value })}
+                style={{ flex: 1 }}
+              />
+              <Button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    if (!token) throw new Error('Не найден токен авторизации');
+
+                    const response = await fetch(`/api/admin/content/${id}`, {
+                      method: 'PUT',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({ release_date: mediaItem.release_date })
+                    });
+
+                    if (!response.ok) throw new Error('Ошибка при обновлении даты выхода');
+                    setSuccess('Дата выхода успешно обновлена');
+                  } catch (error) {
+                    setError(error instanceof Error ? error.message : 'Произошла ошибка');
+                  }
+                }}
+              >
+                Обновить
+              </Button>
+            </div>
           </FormGroup>
 
           <FormGroup>
             <Label>Рейтинг</Label>
-            <Input
-              type="number"
-              min="0"
-              max="10"
-              step="0.1"
-              value={mediaItem.rating}
-              onChange={(e) => setMediaItem({ ...mediaItem, rating: parseFloat(e.target.value) })}
-              required
-            />
+            <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+              <Input
+                type="number"
+                min="0"
+                max="10"
+                step="0.1"
+                value={mediaItem.rating}
+                onChange={(e) => setMediaItem({ ...mediaItem, rating: parseFloat(e.target.value) })}
+                required
+                style={{ flex: 1 }}
+              />
+              <Button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    if (!token) throw new Error('Не найден токен авторизации');
+
+                    const response = await fetch(`/api/admin/content/${id}`, {
+                      method: 'PUT',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({ rating: mediaItem.rating })
+                    });
+
+                    if (!response.ok) throw new Error('Ошибка при обновлении рейтинга');
+                    setSuccess('Рейтинг успешно обновлен');
+                  } catch (error) {
+                    setError(error instanceof Error ? error.message : 'Произошла ошибка');
+                  }
+                }}
+              >
+                Обновить
+              </Button>
+            </div>
           </FormGroup>
 
           <FormGroup>
             <Label>Длительность (минуты)</Label>
-            <Input
-              type="number"
-              min="0"
-              value={mediaItem.duration || ''}
-              onChange={(e) => setMediaItem({ ...mediaItem, duration: parseInt(e.target.value) })}
-            />
+            <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+              <Input
+                type="number"
+                min="0"
+                value={mediaItem.duration || ''}
+                onChange={(e) => setMediaItem({ ...mediaItem, duration: parseInt(e.target.value) })}
+                style={{ flex: 1 }}
+              />
+              <Button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    if (!token) throw new Error('Не найден токен авторизации');
+
+                    const response = await fetch(`/api/admin/content/${id}`, {
+                      method: 'PUT',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({ duration: mediaItem.duration })
+                    });
+
+                    if (!response.ok) throw new Error('Ошибка при обновлении длительности');
+                    setSuccess('Длительность успешно обновлена');
+                  } catch (error) {
+                    setError(error instanceof Error ? error.message : 'Произошла ошибка');
+                  }
+                }}
+              >
+                Обновить
+              </Button>
+            </div>
           </FormGroup>
 
           <FormGroup>

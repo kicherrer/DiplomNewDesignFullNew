@@ -64,6 +64,9 @@ const WatchContainer = styled.div`
   padding: 0;
   min-height: 100vh;
   background: ${({ theme }) => theme.colors.background};
+  position: relative;
+  overflow-x: hidden;
+  color: ${({ theme }) => theme.colors.text};
 `;
 
 const ContentWrapper = styled.div`
@@ -71,6 +74,7 @@ const ContentWrapper = styled.div`
   margin: 0 auto;
   padding: 0 ${({ theme }) => theme.spacing.xl};
   position: relative;
+  transform-style: preserve-3d;
 `;
 
 const Poster = styled.img`
@@ -83,35 +87,59 @@ const Poster = styled.img`
 
 const BackdropImage = styled.div<{ $url?: string }>`
   width: 100%;
-  height: 600px;
-  background: ${({ $url, theme }) => $url ? `linear-gradient(to bottom, transparent 60%, ${theme.colors.background}), url(${$url})` : theme.colors.surface};
+  height: 100vh;
+  background: ${({ $url, theme }) => $url ? `url(${$url})` : theme.colors.surface};
   background-size: cover;
-  background-position: center;
-  position: relative;
-`;
+  background-position: top center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  filter: brightness(0.7) contrast(1.2) saturate(1.1);
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.1) 0%,
+      rgba(0, 0, 0, 0.5) 50%,
+      rgba(0, 0, 0, 0.9) 100%
+    );
+  }
+`
 
 const InfoSection = styled.div`
   padding: ${({ theme }) => theme.spacing.xl};
   display: grid;
   grid-template-columns: 300px 1fr;
   gap: ${({ theme }) => theme.spacing.xl};
-  background: ${({ theme }) => theme.colors.surface};
-  border-radius: ${({ theme }) => theme.borderRadius.xl};
-  box-shadow: ${({ theme }) => theme.shadows.lg};
-  margin-top: -100px;
+  margin-top: 40vh;
   position: relative;
   z-index: 1;
+  color: #fff;
+  backdrop-filter: blur(10px);
+  border-radius: ${({ theme }) => theme.borderRadius.xl};
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
-    margin-top: 0;
+    margin-top: 30vh;
+    padding: ${({ theme }) => theme.spacing.lg};
   }
 `;
 
 const Title = styled.h1`
-  font-size: ${({ theme }) => theme.typography.fontSize['3xl']};
+  font-size: ${({ theme }) => theme.typography.fontSize['4xl']};
   font-weight: ${({ theme }) => theme.typography.fontWeight.bold};
   margin-bottom: ${({ theme }) => theme.spacing.md};
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 `;
 
 const MetaInfo = styled.div`
@@ -123,8 +151,11 @@ const MetaInfo = styled.div`
 
 const Description = styled.p`
   font-size: ${({ theme }) => theme.typography.fontSize.lg};
-  line-height: 1.6;
+  line-height: 1.8;
   margin-bottom: ${({ theme }) => theme.spacing.xl};
+  color: rgba(255, 255, 255, 1);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  font-weight: ${({ theme }) => theme.typography.fontWeight.medium};
 `;
 
 const GenreList = styled.div`
@@ -135,9 +166,19 @@ const GenreList = styled.div`
 
 const Genre = styled.span`
   padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
-  background: ${({ theme }) => theme.colors.surface};
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: ${({ theme }) => theme.borderRadius.full};
   font-size: ${({ theme }) => theme.typography.fontSize.sm};
+  color: rgba(255, 255, 255, 1);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  }
 `;
 
 const SubTitle = styled.h2`
@@ -189,10 +230,12 @@ const VideoSection = styled.div`
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing.md};
   min-height: 400px;
-  background: ${({ theme }) => theme.colors.surface};
+  background: rgba(0, 0, 0, 0.2);
   border-radius: ${({ theme }) => theme.borderRadius.lg};
   overflow: hidden;
-  box-shadow: ${({ theme }) => theme.shadows.md};
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
 `;
 
 const VideoWrapper = styled.div`
@@ -366,7 +409,13 @@ const WatchPage: React.FC = () => {
             <div>
               <Title>{movie.title}</Title>
               {movie.original_title && (
-                <div style={{ marginBottom: '1rem', color: 'gray' }}>
+                <div style={{ 
+                  marginBottom: '1rem', 
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  fontSize: theme.typography.fontSize.xl,
+                  fontWeight: theme.typography.fontWeight.medium,
+                  textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)'
+                }}>
                   {movie.original_title}
                 </div>
               )}
