@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import AdminLayout from '@/components/Admin/AdminLayout';
 import styled from 'styled-components';
@@ -137,11 +137,9 @@ const ContentManagement = () => {
     }
   }, [isAuthorized]);
 
-  useEffect(() => {
-    if (!isAuthorized) return;
-
-    const debounceTimer = setTimeout(() => {
-      const searchLower = searchQuery.toLowerCase().trim();
+  const debouncedSearch = useCallback(
+    debounce((query: string) => {
+      const searchLower = query.toLowerCase().trim();
       
       if (searchLower && Array.isArray(mediaItems)) {
         const filtered = mediaItems.filter((item: MediaItem) => {
@@ -157,15 +155,20 @@ const ContentManagement = () => {
       } else {
         setFilteredItems(mediaItems);
       }
-    }, DEBOUNCE_DELAY);
+    }, DEBOUNCE_DELAY),
+    [mediaItems]
+  );
+
+  useEffect(() => {
+    if (!isAuthorized) return;
+    debouncedSearch(searchQuery);
 
     return () => {
-      clearTimeout(debounceTimer);
       if (activeRequest) {
         activeRequest.abort();
       }
     };
-  }, [searchQuery, isAuthorized, mediaItems]);
+  }, [searchQuery, isAuthorized, debouncedSearch]);
 
 
   const loadMore = () => {
@@ -432,3 +435,12 @@ const ContentManagement = () => {
 };
 
 export default ContentManagement;
+
+
+const debounce = <T extends (...args: any[]) => any>(func: T, wait: number): ((...args: Parameters<T>) => void) => {
+  let timeoutId: NodeJS.Timeout;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func(...args), wait);
+  };
+};

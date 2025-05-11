@@ -580,11 +580,39 @@ const EditContent = () => {
 
           <FormGroup className="image-preview">
             <Label>URL постера</Label>
-            <Input
-              type="url"
-              value={mediaItem.poster_url || ''}
-              onChange={(e) => setMediaItem({ ...mediaItem, poster_url: e.target.value })}
-            />
+            <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+              <Input
+                type="url"
+                value={mediaItem.poster_url || ''}
+                onChange={(e) => setMediaItem({ ...mediaItem, poster_url: e.target.value })}
+                style={{ flex: 1 }}
+              />
+              <Button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    if (!token) throw new Error('Не найден токен авторизации');
+
+                    const response = await fetch(`/api/admin/content/${id}`, {
+                      method: 'PUT',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({ poster_url: mediaItem.poster_url })
+                    });
+
+                    if (!response.ok) throw new Error('Ошибка при обновлении URL постера');
+                    setSuccess('URL постера успешно обновлен');
+                  } catch (error) {
+                    setError(error instanceof Error ? error.message : 'Произошла ошибка');
+                  }
+                }}
+              >
+                Обновить
+              </Button>
+            </div>
             {mediaItem.poster_url && (
               <div className="preview-container">
                 <img src={mediaItem.poster_url} alt="Предпросмотр постера" />
@@ -594,11 +622,39 @@ const EditContent = () => {
 
           <FormGroup className="image-preview">
             <Label>URL фона</Label>
-            <Input
-              type="url"
-              value={mediaItem.backdrop_url || ''}
-              onChange={(e) => setMediaItem({ ...mediaItem, backdrop_url: e.target.value })}
-            />
+            <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+              <Input
+                type="url"
+                value={mediaItem.backdrop_url || ''}
+                onChange={(e) => setMediaItem({ ...mediaItem, backdrop_url: e.target.value })}
+                style={{ flex: 1 }}
+              />
+              <Button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    if (!token) throw new Error('Не найден токен авторизации');
+
+                    const response = await fetch(`/api/admin/content/${id}`, {
+                      method: 'PUT',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({ backdrop_url: mediaItem.backdrop_url })
+                    });
+
+                    if (!response.ok) throw new Error('Ошибка при обновлении URL фона');
+                    setSuccess('URL фона успешно обновлен');
+                  } catch (error) {
+                    setError(error instanceof Error ? error.message : 'Произошла ошибка');
+                  }
+                }}
+              >
+                Обновить
+              </Button>
+            </div>
             {mediaItem.backdrop_url && (
               <div className="preview-container">
                 <img src={mediaItem.backdrop_url} alt="Предпросмотр фона" />

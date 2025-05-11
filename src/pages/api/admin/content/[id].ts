@@ -50,9 +50,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       case 'PUT':
         const updatedData = req.body;
+        
+        // Отделяем связанные данные от основных данных
+        const { genres, videos, trailers, id: _, media_files, ...mediaData } = updatedData;
+
         const updatedMediaItem = await prisma.media.update({
           where: { id: mediaId },
-          data: updatedData,
+          data: {
+            ...mediaData,
+            // Обновляем связи с жанрами
+            genres: genres ? {
+              deleteMany: {},
+              create: genres.map((genre: { id: number; name: string }) => ({
+                genre_id: genre.id
+              }))
+            } : undefined,
+            // Обновляем видео
+            videos: videos ? {
+              deleteMany: {},
+              create: videos.map((video: any) => ({
+                ...video,
+                media_video_id: mediaId
+              }))
+            } : undefined,
+            // Обновляем трейлеры
+            trailers: trailers ? {
+              deleteMany: {},
+              create: trailers.map((trailer: any) => ({
+                ...trailer,
+                media_trailer_id: mediaId
+              }))
+            } : undefined
+          },
+          include: {
+            genres: true,
+            videos: true,
+            trailers: true
+          }
         });
 
         return res.status(200).json(updatedMediaItem);
