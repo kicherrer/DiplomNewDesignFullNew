@@ -8,6 +8,25 @@ const EditContainer = styled.div`
   padding: 20px;
 `;
 
+const Button = styled.button`
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: ${({ theme }) => theme.colors.primary};
+  color: white;
+  &:hover {
+    opacity: 0.9;
+  }
+`;
+
+const BackButton = styled(Button)`
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
 const Form = styled.form`
   display: flex;
   flex-direction: column;
@@ -80,24 +99,7 @@ const Select = styled.select`
   }
 `;
 
-const Button = styled.button`
-  padding: 10px 20px;
-  border: none;
-  border-radius: 4px;
-  background-color: ${({ theme }) => theme.colors.primary};
-  color: white;
-  cursor: pointer;
-  font-weight: 600;
 
-  &:hover {
-    opacity: 0.9;
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
 
 const ErrorMessage = styled.div`
   color: ${({ theme }) => theme.colors.error};
@@ -218,6 +220,35 @@ const EditContent = () => {
   const { id } = router.query;
   const { user } = useAuth();
   const [isAuthorized, setIsAuthorized] = useState(false);
+
+  const handleBack = () => {
+    // Получаем сохраненную позицию прокрутки из sessionStorage
+    const scrollPosition = sessionStorage.getItem('contentScrollPosition');
+    // Возвращаемся на страницу управления контентом
+    router.push('/admin/content').then(() => {
+      // После перехода восстанавливаем позицию прокрутки
+      if (scrollPosition) {
+        // Используем requestAnimationFrame для гарантированного восстановления после рендеринга
+        requestAnimationFrame(() => {
+          // Проверяем готовность DOM
+          if (document.readyState === 'complete') {
+            window.scrollTo({
+              top: parseInt(scrollPosition),
+              behavior: 'instant'
+            });
+          } else {
+            // Если DOM еще не готов, ждем его загрузки
+            window.addEventListener('load', () => {
+              window.scrollTo({
+                top: parseInt(scrollPosition),
+                behavior: 'instant'
+              });
+            }, { once: true });
+          }
+        });
+      }
+    });
+  };
   const [mediaItem, setMediaItem] = useState<MediaItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -380,6 +411,9 @@ const EditContent = () => {
     return (
       <AdminLayout>
         <EditContainer>
+          <BackButton onClick={handleBack}>
+            ← Назад к списку контента
+          </BackButton>
           <div>Загрузка...</div>
         </EditContainer>
       </AdminLayout>
@@ -390,6 +424,9 @@ const EditContent = () => {
     return (
       <AdminLayout>
         <EditContainer>
+          <BackButton onClick={handleBack}>
+            ← Назад к списку контента
+          </BackButton>
           <div>Контент не найден</div>
         </EditContainer>
       </AdminLayout>
@@ -536,6 +573,9 @@ const EditContent = () => {
   return (
     <AdminLayout>
       <EditContainer>
+        <BackButton onClick={handleBack}>
+          ← Назад к списку контента
+        </BackButton>
         <h1>Редактирование контента</h1>
         {error && <ErrorMessage>{error}</ErrorMessage>}
         <Form onSubmit={handleSubmit}>

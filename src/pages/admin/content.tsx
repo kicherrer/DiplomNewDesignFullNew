@@ -171,10 +171,26 @@ const ContentManagement = () => {
   }, [searchQuery, isAuthorized, debouncedSearch]);
 
 
-  const loadMore = () => {
+  const loadMore = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault(); // Предотвращаем стандартное поведение кнопки
+    
     if (!isLoading && mediaItems.length < pagination.total) {
+      const currentScrollPosition = window.scrollY; // Сохраняем текущую позицию прокрутки
+      
       setPagination(prev => ({ ...prev, page: prev.page + 1 }));
-      fetchMediaItems();
+      
+      // После загрузки новых данных восстанавливаем позицию прокрутки
+      const restoreScroll = () => {
+        window.scrollTo({
+          top: currentScrollPosition,
+          behavior: 'instant'
+        });
+      };
+      
+      fetchMediaItems().then(() => {
+        // Восстанавливаем позицию прокрутки после обновления данных
+        setTimeout(restoreScroll, 0);
+      });
     }
   };
 
@@ -335,6 +351,8 @@ const ContentManagement = () => {
   }
 
   const handleEdit = (id: number) => {
+    // Сохраняем текущую позицию прокрутки перед переходом
+    sessionStorage.setItem('contentScrollPosition', window.scrollY.toString());
     router.push(`/admin/content/edit/${id}`);
   };
 
