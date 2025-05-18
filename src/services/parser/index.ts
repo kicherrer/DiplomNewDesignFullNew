@@ -1,7 +1,25 @@
-import { PrismaClient, Media, MediaStatus, VideoType, VideoStatus } from '@prisma/client';
+import { PrismaClient, Media, MediaStatus, VideoType, VideoStatus, VideoContent } from '@prisma/client';
 import { YouTubeAPI } from './sources/youtube';
+import { PublicContentProvider } from './sources/publicContentProvider';
+import { TorrentProcessor } from './sources/torrentProcessor';
+import * as path from 'path';
 
 const prisma = new PrismaClient();
+
+const TEMP_DIR = path.join(process.cwd(), 'temp');
+const OUTPUT_DIR = path.join(process.cwd(), 'output');
+
+const QBITTORRENT_CONFIG = {
+  host: 'localhost',
+  port: 8080,
+  username: 'admin',
+  password: '128Gsmt08'
+};
+
+const DOODSTREAM_CONFIG = {
+  apiKey: '516152p2xmq0j8mgmqzx4b',
+  baseUrl: 'https://doodapi.com'
+};
 
 export interface VideoContentData {
   url: string;
@@ -14,6 +32,8 @@ export interface VideoContentData {
   description?: string;
   duration?: number;
   size?: number;
+  status?: VideoStatus;
+  is_russian?: boolean;
 }
 
 export interface VideoSource {
@@ -33,9 +53,17 @@ interface TrailerValidationResult {
   isRussian: boolean;
 }
 
+interface MediaWithVideoContent extends Media {
+  trailers?: VideoContent[];
+  videos?: VideoContent[];
+}
+
 export class ContentParser {
   private readonly youtubeAPI: YouTubeAPI;
+  private readonly videoContentProvider: PublicContentProvider;
+  private readonly torrentProcessor: TorrentProcessor;
   private isRunning: boolean = false;
+  private readonly DELAY_BETWEEN_MEDIA = 20000; // 20 секунд задержки между обработкой медиа
 
   constructor() {
     this.youtubeAPI = new YouTubeAPI([
@@ -43,6 +71,8 @@ export class ContentParser {
       'AIzaSyBH9f3ZiudmMFSO1xLi47oxA1wmWD8lrLs',
       'AIzaSyDsurbDIuDMtPbFwQTSDzvHoQWJYXT8Y7g'
     ]);
+    this.videoContentProvider = new PublicContentProvider(QBITTORRENT_CONFIG, DOODSTREAM_CONFIG, TEMP_DIR, OUTPUT_DIR);
+    this.torrentProcessor = new TorrentProcessor(TEMP_DIR, OUTPUT_DIR);
   }
 
   async processMedia(media: Media): Promise<void> {
@@ -51,19 +81,71 @@ export class ContentParser {
     }
 
     try {
-      const content = await this.tryGetContent(media.title);
-      if (content.length > 0) {
-        await this.saveVideoContent(media.id, content);
-        await this.updateMediaStatus(media.id, MediaStatus.READY);
-      } else {
+      console.log(`Начало обработки медиа: ${media.title} (ID: ${media.id})`);
+
+      // Шаг 1: Проверка существующего контента
+      const existingContent = await prisma.videoContent.findMany({
+        where: {
+          OR: [
+            { media_video_id: media.id },
+            { media_trailer_id: media.id }
+          ]
+        }
+      });
+
+      console.log(`Найдено ${existingContent.length} существующих видео для медиа`);
+
+      // Проверяем наличие полного контента
+      const hasFullContent = existingContent.some(content => 
+        content.type === VideoType.FULL_MOVIE || content.type === VideoType.EPISODE
+      );
+
+      if (hasFullContent) {
+        console.log('Обнаружен существующий полный контент, пропускаем поиск');
+        return;
+      }
+
+      // Шаг 2: Проверка и обработка трейлера
+      const existingTrailer = existingContent.find(content => content.type === VideoType.TRAILER);
+      
+      if (!existingTrailer) {
+        console.log('Трейлер не найден, начинаем поиск...');
         const trailer = await this.getTrailer(media.title, media.title, media.id);
         if (trailer) {
+          console.log('Найден новый трейлер, сохраняем...');
           await this.saveVideoContent(media.id, [trailer]);
           await this.updateMediaStatus(media.id, MediaStatus.TRAILER);
         } else {
-          await this.updateMediaStatus(media.id, MediaStatus.NO_VIDEO);
+          console.log('Трейлер не найден');
+        }
+      } else {
+        console.log('Обнаружен существующий трейлер, проверяем качество...');
+        const validation = await this.validateTrailerUrl(existingTrailer.url, media.title);
+        if (!validation.isValid || !validation.isRussian) {
+          console.log('Существующий трейлер требует замены, ищем новый...');
+          const newTrailer = await this.getTrailer(media.title, media.title, media.id);
+          if (newTrailer && newTrailer.isRussian) {
+            console.log('Найден более качественный трейлер, обновляем...');
+            await this.saveVideoContent(media.id, [newTrailer]);
+          }
         }
       }
+
+      // Шаг 3: Поиск и добавление полного контента
+      console.log('Начинаем поиск полного контента...');
+      console.log(`Используем основное название: ${media.title}${media.original_title ? ` и оригинальное название: ${media.original_title}` : ''}`);
+      const fullContent = await this.videoContentProvider.searchContent(media.title, media.original_title, true);
+      
+      if (fullContent.length > 0) {
+        console.log(`Найден полный контент (${fullContent.length} элементов), сохраняем...`);
+        await this.saveVideoContent(media.id, fullContent);
+        await this.updateMediaStatus(media.id, MediaStatus.READY);
+      } else {
+        console.log('Полный контент не найден');
+        await this.updateMediaStatus(media.id, MediaStatus.NO_VIDEO);
+      }
+
+      console.log(`Завершена обработка медиа: ${media.title}`);
     } catch (error) {
       console.error(`Ошибка обработки медиа ${media.id}:`, error);
       await this.updateMediaStatus(media.id, MediaStatus.ERROR);
@@ -77,7 +159,14 @@ export class ContentParser {
     }
 
     try {
-      // Возвращаем пустой массив, так как мы используем только YouTube для трейлеров
+      // Поиск контента через VideoContentProvider
+      const content = await this.videoContentProvider.searchContent(query, null, true);
+      if (content.length > 0) {
+        console.log(`Найден контент для ${query}`);
+        return content;
+      }
+
+      console.log(`Контент не найден для ${query}`);
       return [];
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -215,6 +304,118 @@ export class ContentParser {
     }
   }
 
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async processAllMedia(): Promise<void> {
+    if (this.isRunning) {
+      console.log('Парсер уже запущен');
+      return;
+    }
+
+    this.isRunning = true;
+    console.log('Запуск обработки всех медиа...');
+
+    try {
+      // Шаг 1: Обработка медиа с существующим контентом для проверки и обновления
+      const mediaWithContent = await prisma.media.findMany({
+        where: {
+          status: MediaStatus.READY
+        },
+        include: {
+          trailers: true,
+          videos: true
+        },
+        orderBy: [
+          { updated_at: 'desc' }
+        ]
+      }) as MediaWithVideoContent[];
+
+      console.log(`Найдено ${mediaWithContent.length} медиа с существующим контентом для проверки`);
+
+      for (const media of mediaWithContent) {
+        console.log(`Проверка существующего контента для: ${media.title}`);
+        const needsUpdate = (
+          media.trailers?.some(content => content.status === VideoStatus.ERROR) ||
+          media.videos?.some(content => 
+            content.status === VideoStatus.ERROR || 
+            (content.type === VideoType.EPISODE && media.type === 'SERIES')
+          )
+        ) ?? false;
+
+        if (needsUpdate) {
+          console.log(`Требуется обновление контента для: ${media.title}`);
+          await this.processMedia(media);
+          await this.delay(this.DELAY_BETWEEN_MEDIA);
+        } else {
+          console.log(`Контент актуален для: ${media.title}`);
+        }
+      }
+
+      // Шаг 2: Обработка медиа с трейлерами для поиска полного контента
+      const mediaWithTrailers = await prisma.media.findMany({
+        where: {
+          status: MediaStatus.TRAILER
+        },
+        orderBy: [
+          { updated_at: 'desc' }
+        ]
+      });
+
+      console.log(`Найдено ${mediaWithTrailers.length} медиа с трейлерами для обработки`);
+
+      for (const media of mediaWithTrailers) {
+        console.log(`Обработка медиа с трейлером: ${media.title}`);
+        await this.processMedia(media);
+        await this.delay(this.DELAY_BETWEEN_MEDIA);
+      }
+
+      // Шаг 3: Обработка новых медиа
+      const newMedia = await prisma.media.findMany({
+        where: {
+          status: MediaStatus.INACTIVE
+        },
+        orderBy: [
+          { updated_at: 'desc' }
+        ]
+      });
+
+      console.log(`Найдено ${newMedia.length} новых медиа для обработки`);
+
+      for (const media of newMedia) {
+        console.log(`Обработка нового медиа: ${media.title}`);
+        await this.processMedia(media);
+        await this.delay(this.DELAY_BETWEEN_MEDIA);
+      }
+
+      // Шаг 4: Обработка медиа без видео для повторной попытки
+      const mediaWithoutVideo = await prisma.media.findMany({
+        where: {
+          status: MediaStatus.NO_VIDEO
+        },
+        orderBy: [
+          { updated_at: 'desc' }
+        ]
+      });
+
+      console.log(`Найдено ${mediaWithoutVideo.length} медиа без видео для повторной попытки`);
+
+      for (const media of mediaWithoutVideo) {
+        console.log(`Повторная попытка обработки медиа: ${media.title}`);
+        await this.processMedia(media);
+        await this.delay(this.DELAY_BETWEEN_MEDIA);
+      }
+
+      console.log('Обработка всех медиа завершена');
+    } catch (error) {
+      console.error('Ошибка при обработке медиа:', error);
+      throw error;
+    } finally {
+      this.isRunning = false;
+    }
+  }
+
   async processContent(title: string): Promise<void> {
     try {
       const media = await prisma.media.findFirst({
@@ -234,6 +435,21 @@ export class ContentParser {
   }
 
   private async saveVideoContent(mediaId: number, content: VideoContentData[]): Promise<void> {
+    type VideoContentCreateInput = {
+      url: string;
+      quality: string;
+      type: VideoType;
+      format: string;
+      status: VideoStatus;
+      score: number;
+      is_russian: boolean;
+      media_trailer_id: number | null;
+      media_video_id: number | null;
+      title?: string;
+      description?: string;
+      duration?: number;
+      size?: number;
+    };
     if (!content || content.length === 0) {
       throw new Error('Отсутствует контент для сохранения');
     }
